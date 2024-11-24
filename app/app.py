@@ -2,7 +2,6 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import logging
 import socket
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
