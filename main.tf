@@ -9,7 +9,6 @@ terraform {
 
 provider "docker" {}
 
-# Create a custom network
 resource "docker_network" "app_network" {
   name = "app_network"
   driver = "bridge"
