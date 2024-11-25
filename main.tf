@@ -9,93 +9,23 @@ terraform {
 
 provider "docker" {}
 
-resource "docker_network" "app_network" {
-  name = "app_network"
-  driver = "bridge"
-  internal = false
+module "network" {
+  source = "./modules/network"
 }
 
-# App Container
-resource "docker_container" "app" {
-  name  = "app_server"
-  image = docker_image.app.image_id
-  
-  networks_advanced {
-    name = docker_network.app_network.name
-  }
-
-  ports {
-    internal = 8080
-    external = 8080
-  }
-
-  env = [
-    "PYTHONUNBUFFERED=1"
-  ]
+module "app" {
+  source       = "./modules/app"
+  network_name = module.network.network_name
+  container_name = var.app_container_name
+  external_port = var.app_external_port
 }
 
-# Nginx Container
-resource "docker_container" "nginx" {
-  name  = "nginx_lb"
-  image = docker_image.nginx.image_id
-  
-  depends_on = [docker_container.app]
-
-  networks_advanced {
-    name = docker_network.app_network.name
-  }
-
-  ports {
-    internal = 443
-    external = 443
-  }
-  
-  ports {
-    internal = 80
-    external = 80
-  }
-
-  volumes {
-    host_path      = "${abspath(path.module)}/nginx.conf"
-    container_path = "/etc/nginx/nginx.conf"
-  }
-  
-  volumes {
-    host_path      = "${abspath(path.module)}/nginx/ssl"
-    container_path = "/etc/nginx/ssl"
-  }
-
-  host {
-    host = "app_server"
-    ip   = docker_container.app.network_data[0].ip_address
-  }
-}
-
-# Nginx Image
-resource "docker_image" "nginx" {
-  name         = "nginx:latest"
-  keep_locally = true
-}
-
-# App Image
-resource "docker_image" "app" {
-  name         = "app:latest"
-  keep_locally = true
-  depends_on   = [null_resource.build_app_image]
-}
-
-# Build the app image
-resource "null_resource" "build_app_image" {
-  provisioner "local-exec" {
-    command = "docker build -t app:latest ./app"
-  }
-}
-
-# Output the container IPs
-output "nginx_container_ip" {
-  value = docker_container.nginx.network_data[0].ip_address
-}
-
-output "app_container_ip" {
-  value = docker_container.app.network_data[0].ip_address
+module "nginx" {
+  source            = "./modules/nginx"
+  network_name      = module.network.network_name
+  ssl_cert_path     = "nginx/ssl"
+  nginx_conf_path   = "nginx/nginx.conf"
+  app_container_name = module.app.container_name
+  app_container_ip   = module.app.container_ip
+  container_name    = var.nginx_container_name
 }
